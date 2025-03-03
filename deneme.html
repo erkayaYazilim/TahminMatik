@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Süper Lig Oyuncu Tahmin Oyunu</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f8f8f8;
+    }
+    h1, h2, h3 {
+      text-align: center;
+      color: #333;
+    }
+    #game-container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+    #question {
+      margin: 20px 0;
+      font-size: 18px;
+      text-align: center;
+    }
+    .player-info {
+      margin: 20px 0;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+    .choices {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .choice-btn {
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      padding: 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.3s ease;
+    }
+    .choice-btn:hover {
+      background-color: #0056b3;
+    }
+    #feedback {
+      margin: 10px 0;
+      font-size: 16px;
+      font-weight: bold;
+      text-align: center;
+    }
+    #score, #final-score {
+      margin: 20px 0;
+      text-align: center;
+      font-weight: bold;
+      font-size: 18px;
+    }
+    .hidden {
+      display: none;
+    }
+    #next-button {
+      display: block;
+      margin: 0 auto;
+      background-color: #28a745;
+      color: #fff;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 20px;
+    }
+    #next-button:hover {
+      background-color: #218838;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Süper Lig Oyuncu Tahmin Oyunu</h1>
+<div id="game-container">
+  <div id="score"></div>
+  <div id="question" class="hidden"></div>
+  <div class="player-info hidden" id="player-info"></div>
+  <div class="choices hidden" id="choices-container"></div>
+  <div id="feedback" class="hidden"></div>
+  <button id="next-button" class="hidden">Sonraki Soru</button>
+  <div id="final-score" class="hidden"></div>
+</div>
+
+<script>
+  // RapidAPI üzerinde API-Football servisindeki kendi anahtarınızı buraya koyun
+  const API_KEY = "ed18f858b9mshf2a6d522a576ebep17fc6djsnf06c751dce99";
+
+  // Süper Lig (league=203), 2023 sezonu, 1. sayfa
+  // Eğer daha fazla sayfa taramak istiyorsanız "?page=2", "?page=3" vb. fetch'leri ekleyip players dizisine ekleyebilirsiniz.
+  const API_URL_PLAYERS_PAGE1 = "https://api-football-v1.p.rapidapi.com/v3/players?league=204&season=2024&page=1";
+
+  let players = [];     // Tüm oyuncuları saklayacağımız dizi
+  let currentQuestion = 0;   // Şu an kaçıncı sorudayız
+  let score = 0;             // Doğru sayısı
+  const totalQuestions = 10; // Kaç soru sorulacak
+
+  // DOM element referansları
+  const questionEl = document.getElementById("question");
+  const playerInfoEl = document.getElementById("player-info");
+  const choicesContainer = document.getElementById("choices-container");
+  const feedbackEl = document.getElementById("feedback");
+  const nextButton = document.getElementById("next-button");
+  const scoreEl = document.getElementById("score");
+  const finalScoreEl = document.getElementById("final-score");
+
+  // 1) Oyuncu verilerini çek
+  async function fetchPlayers() {
+    try {
+      const response1 = await fetch(API_URL_PLAYERS_PAGE1, {
+        headers: {
+          "X-RapidAPI-Key": API_KEY,
+          "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com"
+        }
+      });
+      const data1 = await response1.json();
+
+      if (data1.response && data1.response.length > 0) {
+        // data1.response[i].player => Temel oyuncu bilgileri
+        // data1.response[i].statistics => istatistik bilgileri (0. indexte takımı vs. bulabiliriz)
+        players = data1.response.map(item => item);
+      }
+
+      // Eğer daha fazla sayfa isterseniz burada ek fetch yapabilirsiniz
+      // örn: page=2, page=3 vb. sonra players.push(... ikinciSayfa.response)
+      // Bu örnekte tek sayfa ile devam ediyoruz.
+
+      // Oyuncu listesi yeterli düzeydeyse oyunu başlat
+      if (players.length === 0) {
+        alert("Oyuncu verisi bulunamadı veya API eksik veri döndü!");
+        return;
+      }
+
+      // Başlangıç ayarları
+      currentQuestion = 0;
+      score = 0;
+      scoreEl.textContent = "";
+      finalScoreEl.classList.add("hidden");
+      finalScoreEl.textContent = "";
+
+      showQuestion();
+    } catch (error) {
+      console.error("Oyuncu verileri çekilirken hata oluştu:", error);
+      alert("Oyuncu verileri alınamadı, konsolu kontrol edin.");
+    }
+  }
+
+  // 2) Rastgele bir oyuncu seçip, onun bilgisini (isim hariç) ekrana yaz. Cevap şıklarını üret.
+  function showQuestion() {
+    if (currentQuestion >= totalQuestions) {
+      endGame();
+      return;
+    }
+
+    // Ekranı sıfırla
+    questionEl.textContent = `Soru ${currentQuestion + 1}/${totalQuestions} - Bu oyuncu kim?`;
+    questionEl.classList.remove("hidden");
+    feedbackEl.classList.add("hidden");
+    nextButton.classList.add("hidden");
+    choicesContainer.innerHTML = "";
+    choicesContainer.classList.remove("hidden");
+    playerInfoEl.classList.remove("hidden");
+    finalScoreEl.classList.add("hidden");
+
+    // Skoru güncelle
+    scoreEl.textContent = `Skor: ${score}`;
+
+    // Rastgele bir oyuncu seç
+    const randomIndex = Math.floor(Math.random() * players.length);
+    const chosen = players[randomIndex];
+
+    // İçinden gerekli bilgileri al (eğer veri eksikse kontrol et)
+    // chosen.player: { name, age, nationality, photo, ... }
+    // chosen.statistics[0].team, chosen.statistics[0].games.position, vs.
+    const playerData = chosen.player;
+    const stats = chosen.statistics && chosen.statistics.length > 0 ? chosen.statistics[0] : null;
+    const teamName = stats && stats.team ? stats.team.name : "Bilinmiyor";
+    const position = stats && stats.games ? stats.games.position : "Bilinmiyor";
+    const nationality = playerData.nationality || "Bilinmiyor";
+    const age = playerData.age || "Bilinmiyor";
+
+    // Ekrana "isim hariç" bilgileri yazalım
+    playerInfoEl.innerHTML = `
+      <p><strong>Milliyet:</strong> ${nationality}</p>
+      <p><strong>Yaş:</strong> ${age}</p>
+      <p><strong>Mevki (Pozisyon):</strong> ${position}</p>
+      <p><strong>Takım:</strong> ${teamName}</p>
+    `;
+
+    // Doğru cevap bu oyuncunun adı
+    const correctName = playerData.name;
+
+    // Şıklara eklemek üzere 3 farklı oyuncu adı bul
+    // (Seçilen oyuncu haricinde rastgele 3 farklı isim çekelim)
+    let otherPlayers = players.filter(p => p.player.id !== chosen.player.id);
+    // Rastgele karıştırma
+    shuffleArray(otherPlayers);
+    // Diğer oyunculardan ilk 3'ünün ismini al
+    const distractors = otherPlayers.slice(0, 3).map(item => item.player.name);
+
+    // Toplam 4 şık: (1 doğru + 3 yanlış)
+    let answers = [correctName, ...distractors];
+    shuffleArray(answers); // Şıkları rastgele sırayla göster
+
+    // Her bir şık için bir buton oluşturalım
+    answers.forEach(nameOption => {
+      const btn = document.createElement("button");
+      btn.classList.add("choice-btn");
+      btn.textContent = nameOption;
+      btn.addEventListener("click", () => {
+        checkAnswer(nameOption, correctName);
+      });
+      choicesContainer.appendChild(btn);
+    });
+  }
+
+  // 3) Seçilen cevabın doğruluğunu kontrol et
+  function checkAnswer(selectedName, correctName) {
+    // Şıkları pasif hale getirelim (birden çok kez tıklamaması için)
+    const buttons = document.querySelectorAll(".choice-btn");
+    buttons.forEach(btn => btn.disabled = true);
+
+    feedbackEl.classList.remove("hidden");
+
+    if (selectedName === correctName) {
+      feedbackEl.textContent = "Tebrikler, doğru bildiniz!";
+      score++;
+      scoreEl.textContent = `Skor: ${score}`;
+    } else {
+      feedbackEl.textContent = `Yanlış cevap! Doğru cevap: ${correctName}`;
+    }
+
+    // Sonraki soruya geçmek için butonu göster
+    nextButton.classList.remove("hidden");
+  }
+
+  // 4) "Sonraki Soru" butonuna basıldığında
+  nextButton.addEventListener("click", () => {
+    currentQuestion++;
+    showQuestion();
+  });
+
+  // Oyun bittiğinde
+  function endGame() {
+    questionEl.classList.add("hidden");
+    choicesContainer.classList.add("hidden");
+    playerInfoEl.classList.add("hidden");
+    feedbackEl.classList.add("hidden");
+    nextButton.classList.add("hidden");
+
+    finalScoreEl.classList.remove("hidden");
+    finalScoreEl.textContent = `Oyun bitti! Toplam skorunuz: ${score} / ${totalQuestions}`;
+
+    // Tekrar oynamak isterseniz: sayfayı yeniletebilir veya yeniden fetchPlayers() çağırabilirsiniz.
+    // Burada basit bir "yenile" örneği verelim:
+    const replayBtn = document.createElement("button");
+    replayBtn.textContent = "Tekrar Oyna";
+    replayBtn.style.display = "block";
+    replayBtn.style.margin = "20px auto";
+    replayBtn.style.padding = "10px 20px";
+    replayBtn.style.borderRadius = "5px";
+    replayBtn.style.backgroundColor = "#007bff";
+    replayBtn.style.color = "#fff";
+    replayBtn.style.border = "none";
+    replayBtn.style.cursor = "pointer";
+    replayBtn.addEventListener("click", () => {
+      location.reload();
+    });
+    finalScoreEl.appendChild(replayBtn);
+  }
+
+  // Yardımcı fonksiyon: Rastgele karıştırma
+  function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+  }
+
+  // Sayfa açıldığında oyuncuları çek -> sonra oyunu başlat
+  fetchPlayers();
+</script>
+
+</body>
+</html>

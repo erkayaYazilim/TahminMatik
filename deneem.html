@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Maç Detayları</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      background: #fff;
+      margin: auto;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+    }
+    p {
+      font-size: 18px;
+      line-height: 1.5;
+    }
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Maç Detayları</h1>
+    <div id="matchDetails">Detaylar yükleniyor...</div>
+  </div>
+
+  <script>
+    // Geçerli fixture id (Test etmek için kendi fixture id'nizi girin)
+    const fixtureId = 1238046;  
+    // API URL'si: v3 endpoint kullanılıyor
+    const url = `https://api-football-v1.p.rapidapi.com/v3/fixtures/lineups?fixture=${fixtureId}`;
+    
+    // İstek seçenekleri (RapidAPI anahtar ve host bilgileri)
+    const options = {
+      method: 'GET',
+      headers: {
+        'X-RapidAPI-Key': 'ed18f858b9mshf2a6d522a576ebep17fc6djsnf06c751dce99',
+        'X-RapidAPI-Host': 'api-football-v1.p.rapidapi.com'
+      }
+    };
+
+    // API'ye fetch isteği gönderiliyor
+    fetch(url, options)
+      .then(response => {
+        console.log('HTTP Durum Kodu:', response.status);
+        if (!response.ok) {
+          throw new Error('HTTP hata: ' + response.status);
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('API Yanıtı:', data);
+        const matchDiv = document.getElementById('matchDetails');
+        
+        // Gelen JSON'da response alanı varsa
+        if (!data.response || data.response.length === 0) {
+          matchDiv.innerHTML = '<p class="error">Maç detayları bulunamadı.</p>';
+          return;
+        }
+        
+        // Örneğin, API bir tane lineup nesnesi döndürüyorsa:
+        const lineup = data.response[0];
+        console.log('Lineup nesnesi:', lineup);
+        
+        // Ev ve deplasman takım isimlerini alıyoruz
+        const homeTeam = (lineup.teams && lineup.teams.home && lineup.teams.home.name) || "Bilinmiyor";
+        const awayTeam = (lineup.teams && lineup.teams.away && lineup.teams.away.name) || "Bilinmiyor";
+        // Stadyum bilgisi
+        const venueName = (lineup.fixture && lineup.fixture.venue && lineup.fixture.venue.name) || "Bilinmiyor";
+        const venueCity = (lineup.fixture && lineup.fixture.venue && lineup.fixture.venue.city) || "";
+        
+        // Basit HTML oluşturuyoruz
+        const html = `
+          <p><strong>Ev Takım:</strong> ${homeTeam}</p>
+          <p><strong>Deplasman Takım:</strong> ${awayTeam}</p>
+          <p><strong>Stadyum:</strong> ${venueName}${venueCity ? ", " + venueCity : ""}</p>
+        `;
+        matchDiv.innerHTML = html;
+      })
+      .catch(error => {
+        console.error('Fetch Hatası:', error);
+        document.getElementById('matchDetails').innerHTML = `<p class="error">Maç detayları çekilemedi: ${error.message}</p>`;
+      });
+  </script>
+</body>
+</html>
