@@ -1,10 +1,11 @@
 (async function () {
     const categories = ['Free', 'Paid'];
+    const predictionTypes = ['Match Winner', 'Home/Away', 'Second Half Winner', 'Goals Over/Under', 'Goals Over/Under First Half', 'Goals Over/Under - Second Half', 'HT/FT Double', 'Both Teams Score', 'Win to Nil - Home', 'Win to Nil - Away', 'Exact Score', 'Highest Scoring Half', 'Correct Score - First Half', 'Double Chance', 'First Half Winner', 'Total - Home', 'Total - Away', 'Both Teams Score - First Half', 'Both Teams To Score - Second Half', 'Odd/Even', 'Exact Goals Number', 'Home Team Exact Goals Number', 'Away Team Exact Goals Number', 'Home Team Score a Goal', 'Away Team Score a Goal', 'Exact Goals Number - First Half', 'Home team will score in both halves', 'Away team will score in both halves', 'To Score in Both Halves', 'Winning Margin'];
 
     let selectedCategory = null; // Seçilen kategori
 
     // API bilgileri
-    const apiKey = 'd4ac606f77mshefcba8ce9e6a37fp1bbe62jsne88a4b40c369'; // Kendi API anahtarınızı buraya ekleyin
+    const apiKey = '6f82312979msh155e30f4a1f4880p18cc74jsnfca39f9054d6'; // Kendi API anahtarınızı buraya ekleyin
     const apiHost = 'api-football-v1.p.rapidapi.com'; // API host adresi
 
     // Maçları yükleyen fonksiyon
