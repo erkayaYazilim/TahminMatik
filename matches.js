@@ -6,7 +6,7 @@
         'Double Chance','First Half Winner','Total - Home','Total - Away','Both Teams Score - First Half','Both Teams To Score - Second Half','Odd/Even',
         'Exact Goals Number','Home Team Exact Goals Number','Away Team Exact Goals Number','Home Team Score a Goal','Away Team Score a Goal',
         'Exact Goals Number - First Half','Home team will score in both halves','Away team will score in both halves','To Score in Both Halves','Winning Margin'
-    ]; // Tahmin türleri kategorileri
+    ]; 
     const predictionValues = {
         'Match Winner': ['Home', 'Draw', 'Away'],
         'Home/Away': ['Home', 'Away'],
@@ -15,17 +15,10 @@
         'Goals Over/Under First Half': ['Over 0.5', 'Under 0.5', 'Over 1.5', 'Under 1.5'],
         'Goals Over/Under - Second Half': ['Over 0.5', 'Under 0.5', 'Over 1.5', 'Under 1.5'],
        'HT/FT Double': [
-    'Home/Home',         // İlk yarı ev sahibi, maç sonu ev sahibi kazanır
-    'Home/Draw',         // İlk yarı ev sahibi, maç sonu beraberlik
-    'Home/Away',         // İlk yarı ev sahibi, maç sonu deplasman takımı kazanır
-    'Draw/Home',         // İlk yarı beraberlik, maç sonu ev sahibi kazanır
-    'Draw/Draw',         // İlk yarı beraberlik, maç sonu beraberlik
-    'Draw/Away',         // İlk yarı beraberlik, maç sonu deplasman takımı kazanır
-    'Away/Home',         // İlk yarı deplasman, maç sonu ev sahibi kazanır
-    'Away/Draw',         // İlk yarı deplasman, maç sonu beraberlik
-    'Away/Away'          // İlk yarı deplasman, maç sonu deplasman takımı kazanır
-],
-
+            'Home/Home', 'Home/Draw', 'Home/Away',
+            'Draw/Home', 'Draw/Draw', 'Draw/Away',
+            'Away/Home', 'Away/Draw', 'Away/Away'
+        ],
         'Both Teams Score': ['Yes', 'No'],
         'Win to Nil - Home': ['Yes', 'No'],
         'Win to Nil - Away': ['Yes', 'No'],
@@ -54,7 +47,18 @@
     let currentMatches = [];
     let currentDate = '';
     const apiKey = '6f82312979msh155e30f4a1f4880p18cc74jsnfca39f9054d6';
-    const apiHost = 'api-football-v1.p.rapidapi.com'; // API host adresi
+    const apiHost = 'api-football-v1.p.rapidapi.com';
+
+    // Geçici tahmin sepetini tanımla; localStorage'den varsa yükle
+    let predictionBasket = [];
+    if(localStorage.getItem("predictionBasket")){
+      predictionBasket = JSON.parse(localStorage.getItem("predictionBasket"));
+    }
+
+    // Sepet güncelleme fonksiyonu
+    function updateBasketLocalStorage(){
+      localStorage.setItem("predictionBasket", JSON.stringify(predictionBasket));
+    }
 
     // Maçları yükleme fonksiyonu
     window.loadMatches = function () {
@@ -72,7 +76,7 @@
         // Arama kutusu için event listener
         const searchInput = document.getElementById('searchInput');
         searchInput.addEventListener('input', () => {
-            displayMatches(); // Arama yapıldığında maçları yeniden göster
+            displayMatches();
         });
     };
 
@@ -85,34 +89,25 @@
 
     function getTurkeyDate() {
         const now = new Date();
-        // Türkiye UTC+3 saat diliminde
-        const turkeyOffset = 3 * 60 * 60 * 1000; // 3 saat
+        const turkeyOffset = 3 * 60 * 60 * 1000;
         const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-        const turkeyTime = new Date(utc + turkeyOffset);
-        return turkeyTime;
+        return new Date(utc + turkeyOffset);
     }
 
-    // Dün, bugün ve yarın için tarihleri döndüren fonksiyon
     function getDateRange() {
         const today = getTurkeyDate();
         const dates = [];
-
-        for (let i = -1; i <= 1; i++) { // Dün, bugün, yarın
+        for (let i = -1; i <= 1; i++) {
             const date = new Date(today);
             date.setDate(today.getDate() + i);
-            // YYYY-MM-DD formatında tarih
-            const dateString = date.toISOString().split('T')[0];
-            dates.push(dateString);
+            dates.push(date.toISOString().split('T')[0]);
         }
-
         return dates;
     }
 
-    // Tarih butonlarını oluştur
     function displayDateButtons(dates) {
         const dateButtonsContainer = document.getElementById('dateButtonsContainer');
         dateButtonsContainer.innerHTML = '';
-
         dates.forEach(date => {
             const button = document.createElement('button');
             button.className = 'date-btn';
@@ -122,7 +117,6 @@
         });
     }
 
-    // Maçları API'den çekmek ve ekranda göstermek
     function fetchMatches(date) {
         currentDate = date;
         const url = `https://${apiHost}/v3/fixtures?date=${date}`;
@@ -142,19 +136,16 @@
                     alert('API isteği sırasında bir hata oluştu: ' + JSON.stringify(data.errors));
                     return;
                 }
-
                 if (data.message) {
                     console.error('API Mesajı:', data.message);
                     alert('API isteği sırasında bir hata oluştu: ' + data.message);
                     return;
                 }
-
                 if (!data.response) {
                     console.error('API Yanıtı Beklenmedik Biçimde:', data);
                     alert('API yanıtı beklenmedik bir biçimde geldi.');
                     return;
                 }
-
                 console.log("Fixture Yanıtı: ", data);
                 currentMatches = data.response;
                 displayMatches();
@@ -165,51 +156,36 @@
             });
     }
 
-    // Maçları ekranda göster
     function displayMatches() {
         const matchContainer = document.getElementById('matchContainer');
         matchContainer.innerHTML = '';
-
         if (!currentMatches || currentMatches.length === 0) {
             matchContainer.innerHTML = '<p>Maç bulunamadı.</p>';
             return;
         }
-
-        // Arama sorgusunu al
         const searchInput = document.getElementById('searchInput');
         const searchQuery = searchInput.value.toLowerCase();
-
-        // Maçları arama sorgusuna göre filtrele
         const filteredMatches = currentMatches.filter(matchData => {
             const homeTeam = matchData.teams.home.name.toLowerCase();
             const awayTeam = matchData.teams.away.name.toLowerCase();
             return homeTeam.includes(searchQuery) || awayTeam.includes(searchQuery);
         });
-
         if (filteredMatches.length === 0) {
             matchContainer.innerHTML = '<p>Maç bulunamadı.</p>';
             return;
         }
-
-        // Tablo oluştur
         const table = document.createElement('table');
         table.className = 'matches-table';
-
-        // Tablo başlık satırını oluştur
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
         const headers = ['Tarih', 'Lig', 'Ev Sahibi', 'Konuk', 'İlk Yarı', 'Maç Sonu', 'Tahmin Yap'];
-
         headers.forEach(headerText => {
             const th = document.createElement('th');
             th.textContent = headerText;
             headerRow.appendChild(th);
         });
-
         thead.appendChild(headerRow);
         table.appendChild(thead);
-
-        // Tablo gövdesini oluştur
         const tbody = document.createElement('tbody');
 
         filteredMatches.forEach(matchData => {
@@ -217,20 +193,16 @@
             const teams = matchData.teams;
             const league = matchData.league;
             const score = matchData.score;
-
             const row = document.createElement('tr');
 
-            // Tarih sütunu
             const dateCell = document.createElement('td');
             dateCell.textContent = new Date(fixture.date).toLocaleString();
             row.appendChild(dateCell);
 
-            // Lig sütunu
             const leagueCell = document.createElement('td');
             leagueCell.textContent = league.name;
             row.appendChild(leagueCell);
 
-            // Ev Sahibi takım sütunu
             const homeTeamCell = document.createElement('td');
             const homeLogo = document.createElement('img');
             homeLogo.src = teams.home.logo;
@@ -242,7 +214,6 @@
             homeTeamCell.appendChild(homeTeamName);
             row.appendChild(homeTeamCell);
     
-            // Konuk takım sütunu (Logo ile birlikte)
             const awayTeamCell = document.createElement('td');
             const awayLogo = document.createElement('img');
             awayLogo.src = teams.away.logo;
@@ -254,7 +225,6 @@
             awayTeamCell.appendChild(awayTeamName);
             row.appendChild(awayTeamCell);
 
-            // İlk yarı sonucu
             const firstHalfCell = document.createElement('td');
             if (score.halftime && score.halftime.home !== null && score.halftime.away !== null) {
                 firstHalfCell.textContent = `${score.halftime.home} - ${score.halftime.away}`;
@@ -263,7 +233,6 @@
             }
             row.appendChild(firstHalfCell);
 
-            // Maç sonu sonucu
             const fullTimeCell = document.createElement('td');
             if (score.fulltime && score.fulltime.home !== null && score.fulltime.away !== null) {
                 fullTimeCell.textContent = `${score.fulltime.home} - ${score.fulltime.away}`;
@@ -272,77 +241,59 @@
             }
             row.appendChild(fullTimeCell);
 
-            // Aksiyon butonları için hücre
             const actionCell = document.createElement('td');
-
-            // TE (Tahmin Et) butonu
             const toggleFormBtn = document.createElement('button');
             toggleFormBtn.className = 'toggleFormBtn';
             toggleFormBtn.textContent = 'TE';
-
-            // MTE (Manuel Tahmin Et) butonu
             const manualFormBtn = document.createElement('button');
             manualFormBtn.className = 'manualFormBtn';
             manualFormBtn.textContent = 'MTE';
+            let predictionForm = null;
+            let manualForm = null;
 
-            // Her maç için form takip değişkenlerini burada tanımlıyoruz
-            let predictionForm = null; // Tahmin formunu takip etmek için
-            let manualForm = null; // Manuel tahmin formunu takip etmek için
-
-            // TE Butonuna tıklama olayı
             toggleFormBtn.addEventListener('click', () => {
-                // Daha önce açılmış form varsa kapat
                 const openForms = tbody.querySelectorAll('.prediction-form');
                 openForms.forEach(form => {
                     if (form !== predictionForm) {
                         form.style.display = 'none';
                     }
                 });
-
                 if (!predictionForm) {
-                    // Tahmin formu yoksa oluştur ve ekle
                     predictionForm = createPredictionForm(fixture.id, fixture.date, teams, league);
                     const formRow = document.createElement('tr');
                     const formCell = document.createElement('td');
-                    formCell.colSpan = 5;
+                    formCell.colSpan = 7;
                     formCell.appendChild(predictionForm);
                     formRow.appendChild(formCell);
                     tbody.insertBefore(formRow, row.nextSibling);
                 } else {
-                    // Tahmin formu varsa göster/gizle
                     predictionForm.style.display = predictionForm.style.display === 'none' ? 'block' : 'none';
                 }
             });
 
-            // MTE Butonuna tıklama olayı (Manuel tahmin formunu açmak için)
             manualFormBtn.addEventListener('click', () => {
-                // Daha önce açılmış manuel tahmin formları varsa kapat
                 const openManualForms = tbody.querySelectorAll('.manual-prediction-form');
                 openManualForms.forEach(form => {
                     if (form !== manualForm) {
                         form.style.display = 'none';
                     }
                 });
-
                 if (!manualForm) {
-                    // Manuel tahmin formu yoksa oluştur ve ekle
                     manualForm = createManualPredictionForm(fixture.id, fixture.date, teams, league);
                     const formRow = document.createElement('tr');
                     const formCell = document.createElement('td');
-                    formCell.colSpan = 5;
+                    formCell.colSpan = 7;
                     formCell.appendChild(manualForm);
                     formRow.appendChild(formCell);
                     tbody.insertBefore(formRow, row.nextSibling);
                 } else {
-                    // Manuel tahmin formu varsa göster/gizle
                     manualForm.style.display = manualForm.style.display === 'none' ? 'block' : 'none';
                 }
             });
 
             actionCell.appendChild(toggleFormBtn);
-            actionCell.appendChild(manualFormBtn); // MTE butonunu ekliyoruz
+            actionCell.appendChild(manualFormBtn);
             row.appendChild(actionCell);
-
             tbody.appendChild(row);
         });
 
@@ -350,12 +301,10 @@
         matchContainer.appendChild(table);
     }
 
-    // Manuel tahmin formunu oluşturma fonksiyonu
+    // Manuel tahmin formunu oluşturma fonksiyonu (Kaydet ve yanına Sepete Ekle butonları eklenmiştir)
     function createManualPredictionForm(fixtureId, fixtureDate, teams, league) {
         const manualForm = document.createElement('div');
-        manualForm.className = 'manual-prediction-form'; // CSS sınıfı
-    
-        // Kategori seçimi
+        manualForm.className = 'manual-prediction-form';
         const categoryLabel = document.createElement('h4');
         categoryLabel.textContent = 'Kategori:';
         const categorySelect = document.createElement('select');
@@ -363,7 +312,6 @@
         categorySelect.innerHTML = `<option value="">Kategori Seçin</option>
             ${categories.map(category => `<option value="${category}">${category}</option>`).join('')}`;
     
-        // Tahmin Türü seçimi
         const predictionTypeLabel = document.createElement('h4');
         predictionTypeLabel.textContent = 'Tahmin Türü:';
         const predictionTypeSelect = document.createElement('select');
@@ -371,7 +319,6 @@
         predictionTypeSelect.innerHTML = `<option value="">Tahmin Türü Seçin</option>
             ${predictionTypes.map(type => `<option value="${type}">${type}</option>`).join('')}`;
     
-        // Tahmin Değeri seçimi
         const predictionValueLabel = document.createElement('h4');
         predictionValueLabel.textContent = 'Tahmin Değeri:';
         const predictionValueSelect = document.createElement('select');
@@ -379,7 +326,6 @@
         predictionValueSelect.innerHTML = '<option value="">Önce Tahmin Türünü Seçin</option>';
         predictionValueSelect.disabled = true;
     
-        // Oran girişi
         const oddsLabel = document.createElement('h4');
         oddsLabel.textContent = 'Oran:';
         const oddsInput = document.createElement('input');
@@ -387,7 +333,6 @@
         oddsInput.step = '0.01';
         oddsInput.placeholder = 'Oran girin';
     
-        // Coin miktarı girişi
         const coinAmountLabel = document.createElement('h4');
         coinAmountLabel.textContent = 'Coin Miktarı:';
         const coinAmountInput = document.createElement('input');
@@ -395,12 +340,16 @@
         coinAmountInput.step = '0.01';
         coinAmountInput.placeholder = 'Coin miktarı girin';
     
-        // Kaydet butonu
+        // Orijinal Kaydet butonu
         const saveBtn = document.createElement('button');
         saveBtn.className = 'saveManualBtn';
         saveBtn.textContent = 'Kaydet';
     
-        // Form elemanlarını ekle
+        // Yeni: Sepete Ekle butonu
+        const addToBasketBtn = document.createElement('button');
+        addToBasketBtn.className = 'addToBasketBtn';
+        addToBasketBtn.textContent = 'Sepete Ekle';
+    
         manualForm.appendChild(categoryLabel);
         manualForm.appendChild(categorySelect);
         manualForm.appendChild(predictionTypeLabel);
@@ -412,8 +361,8 @@
         manualForm.appendChild(coinAmountLabel);
         manualForm.appendChild(coinAmountInput);
         manualForm.appendChild(saveBtn);
+        manualForm.appendChild(addToBasketBtn);
     
-        // Tahmin türü seçildiğinde tahmin değerlerini güncelle
         predictionTypeSelect.addEventListener('change', () => {
             const selectedType = predictionTypeSelect.value;
             if (selectedType && predictionValues[selectedType]) {
@@ -426,33 +375,28 @@
             }
         });
 
-        // Kaydet butonuna tıklama olayı
+        // Kaydet butonu: Mevcut kod mantığı ile veritabanına kaydetme işlemi
         saveBtn.addEventListener('click', () => {
             const selectedCategory = categorySelect.value;
             const predictionType = predictionTypeSelect.value;
             const predictionValue = predictionValueSelect.value;
             const odds = oddsInput.value;
             let coinAmount = coinAmountInput.value;
-
+    
             if (!selectedCategory || !predictionType || !predictionValue || !odds) {
                 alert('Lütfen tüm alanları doldurun.');
                 return;
             }
-
-            // Coin miktarını zorunlu kıl
+    
             if (selectedCategory === 'Paid' && !coinAmount) {
                 alert('Paid kategorisi için coin miktarı girmek zorunludur.');
                 return;
             }
-
-            // Coin miktarı boşsa 0 olarak ayarla
+    
             if (!coinAmount) {
                 coinAmount = 0;
             }
-
-            
-
-            // Maçı manuel olarak veritabanına kaydet
+    
             const manualPredictionData = {
                 matchId: fixtureId,
                 homeTeam: teams.home.name,
@@ -461,20 +405,20 @@
                 awayLogo: teams.away.logo,
                 date: fixtureDate,
                 league: league.name,
-                category: selectedCategory, // Seçilen kategori altında kaydedilecek
+                category: selectedCategory,
                 predictionType: predictionType,
                 predictionValue: predictionValue,
                 odds: parseFloat(odds),
                 coinAmount: parseFloat(coinAmount),
                 status: 'manual'
             };
-
+    
             const dateKey = currentDate;
             const newMatchKey = firebase.database().ref().child('predictions').push().key;
-
+    
             const updates = {};
             updates[`/predictions/${dateKey}/${selectedCategory}/${newMatchKey}`] = manualPredictionData;
-
+    
             firebase.database().ref().update(updates)
                 .then(() => {
                     alert('Manuel tahmin kaydedildi.');
@@ -485,144 +429,171 @@
                     alert('Manuel tahmin kaydedilirken bir hata oluştu.');
                 });
         });
-
+    
+        // Sepete Ekle butonu: Tahmini sepet dizisine ekler ve localStorage güncellenir
+        addToBasketBtn.addEventListener('click', () => {
+            const selectedCategory = categorySelect.value;
+            const predictionType = predictionTypeSelect.value;
+            const predictionValue = predictionValueSelect.value;
+            const odds = oddsInput.value;
+            let coinAmount = coinAmountInput.value;
+    
+            if (!selectedCategory || !predictionType || !predictionValue || !odds) {
+                alert('Lütfen tüm alanları doldurun.');
+                return;
+            }
+    
+            if (selectedCategory === 'Paid' && !coinAmount) {
+                alert('Paid kategorisi için coin miktarı girmek zorunludur.');
+                return;
+            }
+    
+            if (!coinAmount) {
+                coinAmount = 0;
+            }
+    
+            const manualPredictionData = {
+                matchId: fixtureId,
+                homeTeam: teams.home.name,
+                awayTeam: teams.away.name,
+                homeLogo: teams.home.logo,
+                awayLogo: teams.away.logo,
+                date: fixtureDate,
+                league: league.name,
+                category: selectedCategory,
+                predictionType: predictionType,
+                predictionValue: predictionValue,
+                odds: parseFloat(odds),
+                coinAmount: parseFloat(coinAmount),
+                status: 'manual'
+            };
+    
+            predictionBasket.push(manualPredictionData);
+            updateBasketLocalStorage();
+            alert('Manuel tahmin sepete eklendi.');
+        });
+    
         return manualForm;
     }
 
-    // Tahmin formunu oluşturma fonksiyonu
+    // Normal tahmin formunu oluşturma fonksiyonu (Kaydet ve yanına Sepete Ekle butonları eklenmiştir)
     function createPredictionForm(fixtureId, fixtureDate, teams, league) {
         const predictionForm = document.createElement('div');
-    predictionForm.className = 'prediction-form'; // CSS sınıfı
-
-    // Kategori seçimi
-    const categoryLabel = document.createElement('h4');
-    categoryLabel.textContent = 'Kategori:';
-    const categorySelect = document.createElement('select');
-    categorySelect.className = 'categorySelect';
-    categorySelect.innerHTML = `<option value="">Kategori Seçin</option>
-        ${categories.map(category => `<option value="${category}">${category}</option>`).join('')}`;
-
-    // Tahmin türü seçimi
-    const predictionTypeLabel = document.createElement('h4');
-    predictionTypeLabel.textContent = 'Tahmin Türü:';
-    const predictionTypeSelect = document.createElement('select');
-    predictionTypeSelect.className = 'predictionType';
-    predictionTypeSelect.innerHTML = '<option value="">Yükleniyor...</option>';
-    predictionTypeSelect.disabled = true;
-
-    // Tahmin değeri seçimi
-    const predictionValueLabel = document.createElement('h4');
-    predictionValueLabel.textContent = 'Tahmin:';
-    const predictionValueSelect = document.createElement('select');
-    predictionValueSelect.className = 'predictionValueSelect';
-    predictionValueSelect.innerHTML = '<option value="">Tahmin Türü Seçin</option>';
-    predictionValueSelect.disabled = true;
-
-    // Oran girişi
-    const oddsLabel = document.createElement('h4');
-    oddsLabel.textContent = 'Oran:';
-    const oddsInput = document.createElement('input');
-    oddsInput.type = 'number';
-    oddsInput.className = 'odds';
-    oddsInput.placeholder = 'Oran';
-    oddsInput.step = '0.01';
-
-    // Coin miktarı girişi
-    const coinAmountLabel = document.createElement('h4');
-    coinAmountLabel.textContent = 'Coin Miktarı:';
-    const coinAmountInput = document.createElement('input');
-    coinAmountInput.type = 'number';
-    coinAmountInput.className = 'coinAmount';
-    coinAmountInput.placeholder = 'Coin miktarı girin';
-    coinAmountInput.step = '0.01';
-
-    // Kaydet butonu
-    const saveBtn = document.createElement('button');
-    saveBtn.className = 'saveBtn';
-    saveBtn.textContent = 'Kaydet';
-    saveBtn.disabled = true; // Oranlar yüklenene kadar devre dışı
-
-    // Form elemanlarını ekle
-    predictionForm.appendChild(categoryLabel);
-    predictionForm.appendChild(categorySelect);
-    predictionForm.appendChild(predictionTypeLabel);
-    predictionForm.appendChild(predictionTypeSelect);
-    predictionForm.appendChild(predictionValueLabel);
-    predictionForm.appendChild(predictionValueSelect);
-    predictionForm.appendChild(oddsLabel);
-    predictionForm.appendChild(oddsInput);
-    predictionForm.appendChild(coinAmountLabel);
-    predictionForm.appendChild(coinAmountInput);
-    predictionForm.appendChild(saveBtn);
-
-    // Tahmin türlerini yükle
-    fetchPredictionTypes(fixtureId, predictionTypeSelect, predictionValueSelect, oddsInput, saveBtn);
-
-    // Tahmin türü seçildiğinde tahmin seçeneklerini ve oranı güncelle
-    predictionTypeSelect.addEventListener('change', () => {
-        const selectedType = predictionTypeSelect.value;
-        const bets = predictionTypeSelect.bets || [];
-        const selectedBet = bets.find(bet => bet.name === selectedType);
-
-        // Tahmin seçeneklerini temizle
-        predictionValueSelect.innerHTML = '<option value="">Tahmin Seçin</option>';
-        oddsInput.value = '';
-        predictionValueSelect.disabled = false;
-
-        if (selectedBet && selectedBet.values) {
-            selectedBet.values.forEach(value => {
-                const option = document.createElement('option');
-                option.value = value.value;
-                option.text = `${value.value} (Oran: ${value.odd})`;
-                predictionValueSelect.appendChild(option);
-            });
-        } else {
-            predictionValueSelect.disabled = true;
-        }
-    });
-
-    // Tahmin seçildiğinde oranı doldur
-    predictionValueSelect.addEventListener('change', () => {
-        const selectedType = predictionTypeSelect.value;
-        const selectedValue = predictionValueSelect.value;
-        const bets = predictionTypeSelect.bets || [];
-        const selectedBet = bets.find(bet => bet.name === selectedType);
-
-        if (selectedBet && selectedBet.values) {
-            const selectedPrediction = selectedBet.values.find(value => value.value === selectedValue);
-            if (selectedPrediction) {
-                oddsInput.value = selectedPrediction.odd;
+        predictionForm.className = 'prediction-form';
+    
+        const categoryLabel = document.createElement('h4');
+        categoryLabel.textContent = 'Kategori:';
+        const categorySelect = document.createElement('select');
+        categorySelect.className = 'categorySelect';
+        categorySelect.innerHTML = `<option value="">Kategori Seçin</option>
+            ${categories.map(category => `<option value="${category}">${category}</option>`).join('')}`;
+    
+        const predictionTypeLabel = document.createElement('h4');
+        predictionTypeLabel.textContent = 'Tahmin Türü:';
+        const predictionTypeSelect = document.createElement('select');
+        predictionTypeSelect.className = 'predictionType';
+        predictionTypeSelect.innerHTML = '<option value="">Yükleniyor...</option>';
+        predictionTypeSelect.disabled = true;
+    
+        const predictionValueLabel = document.createElement('h4');
+        predictionValueLabel.textContent = 'Tahmin:';
+        const predictionValueSelect = document.createElement('select');
+        predictionValueSelect.className = 'predictionValueSelect';
+        predictionValueSelect.innerHTML = '<option value="">Tahmin Türü Seçin</option>';
+        predictionValueSelect.disabled = true;
+    
+        const oddsLabel = document.createElement('h4');
+        oddsLabel.textContent = 'Oran:';
+        const oddsInput = document.createElement('input');
+        oddsInput.type = 'number';
+        oddsInput.className = 'odds';
+        oddsInput.placeholder = 'Oran';
+        oddsInput.step = '0.01';
+    
+        const coinAmountLabel = document.createElement('h4');
+        coinAmountLabel.textContent = 'Coin Miktarı:';
+        const coinAmountInput = document.createElement('input');
+        coinAmountInput.type = 'number';
+        coinAmountInput.className = 'coinAmount';
+        coinAmountInput.placeholder = 'Coin miktarı girin';
+        coinAmountInput.step = '0.01';
+    
+        // Orijinal Kaydet butonu
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'saveBtn';
+        saveBtn.textContent = 'Kaydet';
+        saveBtn.disabled = true;
+    
+        // Yeni: Sepete Ekle butonu
+        const addToBasketBtn = document.createElement('button');
+        addToBasketBtn.className = 'addToBasketBtn';
+        addToBasketBtn.textContent = 'Sepete Ekle';
+    
+        predictionForm.appendChild(categoryLabel);
+        predictionForm.appendChild(categorySelect);
+        predictionForm.appendChild(predictionTypeLabel);
+        predictionForm.appendChild(predictionTypeSelect);
+        predictionForm.appendChild(predictionValueLabel);
+        predictionForm.appendChild(predictionValueSelect);
+        predictionForm.appendChild(oddsLabel);
+        predictionForm.appendChild(oddsInput);
+        predictionForm.appendChild(coinAmountLabel);
+        predictionForm.appendChild(coinAmountInput);
+        predictionForm.appendChild(saveBtn);
+        predictionForm.appendChild(addToBasketBtn);
+    
+        fetchPredictionTypes(fixtureId, predictionTypeSelect, predictionValueSelect, oddsInput, saveBtn);
+    
+        predictionTypeSelect.addEventListener('change', () => {
+            const selectedType = predictionTypeSelect.value;
+            const bets = predictionTypeSelect.bets || [];
+            const selectedBet = bets.find(bet => bet.name === selectedType);
+            predictionValueSelect.innerHTML = '<option value="">Tahmin Seçin</option>';
+            oddsInput.value = '';
+            predictionValueSelect.disabled = false;
+            if (selectedBet && selectedBet.values) {
+                selectedBet.values.forEach(value => {
+                    const option = document.createElement('option');
+                    option.value = value.value;
+                    option.text = `${value.value} (Oran: ${value.odd})`;
+                    predictionValueSelect.appendChild(option);
+                });
+            } else {
+                predictionValueSelect.disabled = true;
+            }
+        });
+    
+        predictionValueSelect.addEventListener('change', () => {
+            const selectedType = predictionTypeSelect.value;
+            const selectedValue = predictionValueSelect.value;
+            const bets = predictionTypeSelect.bets || [];
+            const selectedBet = bets.find(bet => bet.name === selectedType);
+            if (selectedBet && selectedBet.values) {
+                const selectedPrediction = selectedBet.values.find(value => value.value === selectedValue);
+                oddsInput.value = selectedPrediction ? selectedPrediction.odd : '';
             } else {
                 oddsInput.value = '';
             }
-        } else {
-            oddsInput.value = '';
-        }
-    });
+        });
+    
+        // Kaydet butonu: Mevcut kod mantığıyla veritabanına kaydetme
         saveBtn.addEventListener('click', () => {
             const selectedCategory = categorySelect.value;
             const predictionType = predictionTypeSelect.value;
             const predictionValue = predictionValueSelect.value;
             const odds = oddsInput.value;
             let coinAmount = coinAmountInput.value;
-
             if (!selectedCategory || !predictionType || !predictionValue || !odds) {
                 alert('Lütfen tüm alanları doldurun.');
                 return;
             }
-
-            // Coin miktarını zorunlu kıl
             if (selectedCategory === 'Paid' && !coinAmount) {
                 alert('Paid kategorisi için coin miktarı girmek zorunludur.');
                 return;
             }
-
-            // Coin miktarı boşsa 0 olarak ayarla
             if (!coinAmount) {
                 coinAmount = 0;
             }
-
-            // Maçı veritabanına kaydet
             const matchDataToSave = {
                 matchId: fixtureId,
                 homeTeam: teams.home.name,
@@ -638,23 +609,13 @@
                 coinAmount: parseFloat(coinAmount),
                 status: 'ongoing'
             };
-
             const dateKey = currentDate;
-
             const newMatchKey = firebase.database().ref().child('predictions').push().key;
-
             const updates = {};
             updates[`/predictions/${dateKey}/${selectedCategory}/${newMatchKey}`] = matchDataToSave;
-
             firebase.database().ref().update(updates)
                 .then(() => {
                     alert('Maç tahmini kaydedildi.');
-
-                    // Eğer kategori "Live Tips" ise bildirim gönder
-                    if (selectedCategory === 'Live Tips') {
-                        sendNotificationToAllUsers('Yeni bir Live Tips tahmini eklendi!');
-                    }
-
                     predictionForm.style.display = 'none';
                 })
                 .catch(error => {
@@ -662,11 +623,49 @@
                     alert('Maç kaydedilirken bir hata oluştu.');
                 });
         });
-
+    
+        // Sepete Ekle butonu: Tahmini sepet dizisine ekler ve localStorage güncellenir
+        addToBasketBtn.addEventListener('click', () => {
+            const selectedCategory = categorySelect.value;
+            const predictionType = predictionTypeSelect.value;
+            const predictionValue = predictionValueSelect.value;
+            const odds = oddsInput.value;
+            let coinAmount = coinAmountInput.value;
+            if (!selectedCategory || !predictionType || !predictionValue || !odds) {
+                alert('Lütfen tüm alanları doldurun.');
+                return;
+            }
+            if (selectedCategory === 'Paid' && !coinAmount) {
+                alert('Paid kategorisi için coin miktarı girmek zorunludur.');
+                return;
+            }
+            if (!coinAmount) {
+                coinAmount = 0;
+            }
+            const matchDataToSave = {
+                matchId: fixtureId,
+                homeTeam: teams.home.name,
+                awayTeam: teams.away.name,
+                homeLogo: teams.home.logo,
+                awayLogo: teams.away.logo,
+                date: fixtureDate,
+                league: league.name,
+                category: selectedCategory,
+                predictionType: predictionType,
+                predictionValue: predictionValue,
+                odds: parseFloat(odds),
+                coinAmount: parseFloat(coinAmount),
+                status: 'ongoing'
+            };
+            predictionBasket.push(matchDataToSave);
+            updateBasketLocalStorage();
+            alert('Maç tahmini sepete eklendi.');
+            predictionForm.style.display = 'none';
+        });
+    
         return predictionForm;
     }
-
-    // Tahmin türlerini API'den çekmek ve formu doldurmak için fonksiyon
+    
     function fetchPredictionTypes(fixtureId, predictionTypeSelect, predictionValueSelect, oddsInput, saveBtn) {
         const url = `https://${apiHost}/v3/odds?fixture=${fixtureId}`;
         const options = {
@@ -676,7 +675,7 @@
                 'X-RapidAPI-Host': apiHost
             }
         };
-
+    
         fetch(url, options)
             .then(response => response.json())
             .then(data => {
@@ -688,7 +687,6 @@
                     saveBtn.disabled = true;
                     return;
                 }
-
                 if (!data.response || data.response.length === 0) {
                     console.warn('Bu maç için oran türü bulunamadı.');
                     updatePredictionTypes([], predictionTypeSelect, predictionValueSelect, oddsInput);
@@ -697,7 +695,6 @@
                     saveBtn.disabled = true;
                     return;
                 }
-
                 let validBookmaker = null;
                 for (const bookmaker of data.response[0].bookmakers) {
                     if (bookmaker.bets && bookmaker.bets.length > 0) {
@@ -705,7 +702,6 @@
                         break;
                     }
                 }
-
                 if (validBookmaker) {
                     console.log('Geçerli Bookmaker:', validBookmaker);
                     updatePredictionTypes(validBookmaker.bets, predictionTypeSelect, predictionValueSelect, oddsInput);
@@ -726,13 +722,12 @@
                 saveBtn.disabled = true;
             });
     }
-
-    // Tahmin türlerini formda günceller
+    
     function updatePredictionTypes(bets, predictionTypeSelect, predictionValueSelect, oddsInput) {
         predictionTypeSelect.innerHTML = '<option value="">Tahmin Türü Seçin</option>';
         predictionValueSelect.innerHTML = '<option value="">Tahmin Seçin</option>';
-        oddsInput.value = ''; // Oran giriş alanını temizle
-
+        oddsInput.value = '';
+    
         if (!bets || bets.length === 0) {
             const option = document.createElement('option');
             option.value = '';
@@ -740,7 +735,6 @@
             predictionTypeSelect.appendChild(option);
             predictionTypeSelect.disabled = true;
         } else {
-            // Tahmin türlerini ekle (örneğin Match Winner, Total Goals)
             bets.forEach(bet => {
                 const option = document.createElement('option');
                 option.value = bet.name;
@@ -749,47 +743,121 @@
             });
             predictionTypeSelect.disabled = false;
         }
-
-        // Tahmin türü değiştiğinde, ilgili tahmin seçeneklerini ekle
-        predictionTypeSelect.bets = bets; // Bu satır, seçim yapıldığında kullanılacak
+    
+        predictionTypeSelect.bets = bets;
+    }
+    
+    // Yeni: Sepeti görüntüleme fonksiyonu (Menüden çağrılacak)
+    window.showBasket = function() {
+        const contentDiv = document.getElementById('content');
+        contentDiv.innerHTML = '<h2>Sepet</h2>';
+        if (predictionBasket.length === 0) {
+            contentDiv.innerHTML += '<p>Sepet boş.</p>';
+            return;
+        }
+        let html = '<table class="basket-table"><thead><tr><th>Tarih</th><th>Maç</th><th>Tahmin Türü</th><th>Tahmin</th><th>Oran</th><th>Coin</th><th>İşlem</th></tr></thead><tbody>';
+        predictionBasket.forEach((item, index) => {
+            html += `<tr>
+                <td>${new Date(item.date).toLocaleString()}</td>
+                <td>${item.homeTeam} vs ${item.awayTeam}</td>
+                <td>${item.predictionType}</td>
+                <td>${item.predictionValue}</td>
+                <td>${item.odds}</td>
+                <td>${item.coinAmount}</td>
+                <td><button onclick="removeFromBasket(${index})">Sil</button></td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        html += '<button onclick="publishBasket()">Yayınla</button>';
+        contentDiv.innerHTML += html;
+    };
+    
+    // Sepetten tahmin silme fonksiyonu
+    window.removeFromBasket = function(index) {
+        predictionBasket.splice(index, 1);
+        updateBasketLocalStorage();
+        showBasket();
+    };
+    
+    // Sepetteki tahminleri veritabanına topluca kaydetme fonksiyonu (Her tahmin için ayrı update yapıp ilerleme çubuğunu güncelliyoruz)
+    window.publishBasket = function() {
+        if (predictionBasket.length === 0) {
+            alert('Sepet boş.');
+            return;
+        }
+        const contentDiv = document.getElementById('content');
+        // İlerleme çubuğu için kapsayıcı oluştur
+        const progressContainer = document.createElement('div');
+        progressContainer.className = 'progress-container';
+        const progressLabel = document.createElement('p');
+        progressLabel.textContent = 'Yayınlama İşlemi:';
+        const progressBar = document.createElement('progress');
+        progressBar.id = 'publishProgressBar';
+        progressBar.max = predictionBasket.length;
+        progressBar.value = 0;
+        progressContainer.appendChild(progressLabel);
+        progressContainer.appendChild(progressBar);
+        contentDiv.insertBefore(progressContainer, contentDiv.firstChild);
+    
+        let completed = 0;
+        let publishPromises = [];
+    
+        predictionBasket.forEach(item => {
+            const dateKey = currentDate;
+            const newMatchKey = firebase.database().ref().child('predictions').push().key;
+            let update = {};
+            update[`/predictions/${dateKey}/${item.category}/${newMatchKey}`] = item;
+            let p = firebase.database().ref().update(update)
+                .then(() => {
+                    completed++;
+                    progressBar.value = completed;
+                });
+            publishPromises.push(p);
+        });
+    
+        Promise.all(publishPromises).then(() => {
+            alert('Tahminler yayınlandı.');
+            predictionBasket = [];
+            updateBasketLocalStorage();
+            progressContainer.remove();
+            showBasket();
+        }).catch(error => {
+            console.error('Tahminler yayınlanırken hata oluştu:', error);
+            alert('Tahminler yayınlanırken hata oluştu.');
+            progressContainer.remove();
+        });
+    };
+    
+    // Bildirim gönderme fonksiyonu (Değişiklik yok)
+    function sendNotificationToAllUsers(messageContent) {
+        const usersRef = firebase.database().ref('/users');
+        usersRef.once('value')
+            .then(snapshot => {
+                const users = snapshot.val();
+                if (users) {
+                    const updates = {};
+                    const timestamp = new Date().toISOString();
+                    Object.keys(users).forEach(userId => {
+                        const newNotificationKey = firebase.database().ref().child('users').child(userId).child('notifications').push().key;
+                        const notificationData = {
+                            title: "Maç Bildirimi",
+                            body: messageContent,
+                            isDisplayed: true,
+                            isRead: false,
+                            timestamp: timestamp
+                        };
+                        updates[`/users/${userId}/notifications/${newNotificationKey}`] = notificationData;
+                    });
+                    return firebase.database().ref().update(updates);
+                } else {
+                    console.warn('Kullanıcı bulunamadı.');
+                }
+            })
+            .then(() => {
+                console.log('Tüm kullanıcılara bildirim gönderildi.');
+            })
+            .catch(error => {
+                console.error('Bildirim gönderilirken hata oluştu:', error);
+            });
     }
 })();
-
-function sendNotificationToAllUsers(messageContent) {
-    const usersRef = firebase.database().ref('/users');
-
-    usersRef.once('value')
-        .then(snapshot => {
-            const users = snapshot.val();
-
-            if (users) {
-                const updates = {};
-                const timestamp = new Date().toISOString();
-
-                Object.keys(users).forEach(userId => {
-                    const newNotificationKey = firebase.database().ref().child('users').child(userId).child('notifications').push().key;
-
-                    const notificationData = {
-                        title: "Maç Bildirimi",         // Bildirim başlığı
-                        body: messageContent,          // Bildirim içeriği
-                        isDisplayed: true,             // Bildirim gösterildi mi?
-                        isRead: false,                 // Bildirim okundu mu?
-                        timestamp: timestamp           // Bildirim zamanı
-                    };
-
-                    // Kullanıcının "notifications" düğümüne yeni bildirim ekle
-                    updates[`/users/${userId}/notifications/${newNotificationKey}`] = notificationData;
-                });
-
-                return firebase.database().ref().update(updates);
-            } else {
-                console.warn('Kullanıcı bulunamadı.');
-            }
-        })
-        .then(() => {
-            console.log('Tüm kullanıcılara bildirim gönderildi.');
-        })
-        .catch(error => {
-            console.error('Bildirim gönderilirken hata oluştu:', error);
-        });
-}

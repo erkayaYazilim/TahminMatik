@@ -1339,3 +1339,77 @@ button.saveBtn:hover {
     width: 100%;
     overflow-x: auto; /* Taşan tablo için yatay kaydırma */
 }
+
+
+.main-content {
+    flex: 1;
+    padding: 20px;
+}
+
+/* Tablo Stilleri */
+.matches-table,
+.basket-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+.matches-table th,
+.matches-table td,
+.basket-table th,
+.basket-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+}
+.matches-table th,
+.basket-table th {
+    background: #f2f2f2;
+}
+
+/* Takım Logosu */
+.team-logo {
+    width: 30px;
+    height: 30px;
+    vertical-align: middle;
+    margin-right: 5px;
+}
+
+/* Butonlar */
+.button-container button,
+button {
+    margin: 5px;
+    padding: 8px 12px;
+    border: none;
+    background: #333;
+    color: #fff;
+    cursor: pointer;
+}
+.button-container button:hover,
+button:hover {
+    background: #555;
+}
+
+/* Form Elemanları */
+input[type="text"],
+input[type="number"],
+select {
+    padding: 8px;
+    margin: 5px 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Progress Bar */
+.progress-container {
+    margin: 20px 0;
+}
+progress {
+    width: 100%;
+    height: 20px;
+}
+
+/* Sepet Tablosu */
+.basket-table th,
+.basket-table td {
+    font-size: 14px;
+}
