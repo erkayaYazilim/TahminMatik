@@ -1,6 +1,6 @@
 (function () {
     // Kategorileri tanımla
-    const categories = ['Free', 'Paid'];
+    const categories = ['Free', 'Paid','tekli_tahmin','surpriz_oran','hazirkuponlar'];
     const predictionTypes = ['Match Winner', 'Home/Away', 'Second Half Winner', 'Goals Over/Under', 'Goals Over/Under First Half', 'Goals Over/Under - Second Half',
         'HT/FT Double','Both Teams Score','Win to Nil - Home','Win to Nil - Away','Exact Score','Highest Scoring Half','Correct Score - First Half',
         'Double Chance','First Half Winner','Total - Home','Total - Away','Both Teams Score - First Half','Both Teams To Score - Second Half','Odd/Even',

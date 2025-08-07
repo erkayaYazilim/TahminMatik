@@ -1,5 +1,5 @@
 (async function () {
-    const categories = ['Free', 'Paid'];
+    const categories = ['Free', 'Paid','tekli_tahmin','surpriz_oran','hazirkuponlar'];
     const predictionTypes = ['Match Winner', 'Home/Away', 'Second Half Winner', 'Goals Over/Under', 'Goals Over/Under First Half', 'Goals Over/Under - Second Half', 'HT/FT Double', 'Both Teams Score', 'Win to Nil - Home', 'Win to Nil - Away', 'Exact Score', 'Highest Scoring Half', 'Correct Score - First Half', 'Double Chance', 'First Half Winner', 'Total - Home', 'Total - Away', 'Both Teams Score - First Half', 'Both Teams To Score - Second Half', 'Odd/Even', 'Exact Goals Number', 'Home Team Exact Goals Number', 'Away Team Exact Goals Number', 'Home Team Score a Goal', 'Away Team Score a Goal', 'Exact Goals Number - First Half', 'Home team will score in both halves', 'Away team will score in both halves', 'To Score in Both Halves', 'Winning Margin'];
 
     let selectedCategory = null; // Seçilen kategori
@@ -405,7 +405,7 @@ function updateMatchResult(item, result) {
     if (result === 'won' || result === 'lost') {
         updates.status = 'tamamlandı';
 
-        if (category !== 'Free' && result === 'won') {
+        if (category !== 'Free' && (result === 'won' || result ==='lost')) {
             const matchData = item.matchData;
 
             // odds ve coinAmount değerlerini sayısal değerlere dönüştür
@@ -414,6 +414,7 @@ function updateMatchResult(item, result) {
 
             const winnerData = {
                 ...matchData,
+                userResult: result, 
                 odds: oddsNumber,
                 coinAmount: coinAmountNumber,
                 date: date,

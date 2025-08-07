@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Etkinlik Yönetimi</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f5f5f5; padding:20px; }
+    h1 { text-align:center; }
+    form { background:#fff; padding:20px; border-radius:8px; max-width:800px; margin:auto; box-shadow:0 2px 8px rgba(0,0,0,0.1); }
+    label { display:block; margin-top:12px; font-weight:bold; }
+    input, textarea, select, button { width:100%; padding:8px; margin-top:4px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; }
+    .inline { display:flex; gap:8px; }
+    .inline > * { flex:1; }
+    .questions { margin-top:16px; }
+    .question { background:#fcfcfc; padding:12px; margin-bottom:12px; border:1px solid #ddd; border-radius:4px; position:relative; }
+    .question button { position:absolute; top:8px; right:8px; }
+    .btn { background:#028e71; color:#fff; border:none; cursor:pointer; }
+    .btn.danger { background:#c0392b; }
+    .btn.small { width:auto; padding:6px 12px; font-size:0.9em; }
+  </style>
+</head>
+<body>
+  <h1>Etkinlik Yönetim Paneli</h1>
+  <form id="eventForm">
+    <label>Etkinlik İsmi</label>
+    <input type="text" id="eventName" required />
+
+    <label>Açıklama</label>
+    <textarea id="eventDesc" rows="3" required></textarea>
+
+    <div class="inline">
+      <div>
+        <label>Coin Miktarı</label>
+        <input type="number" id="eventCoins" min="0" required />
+      </div>
+      <div>
+        <label>Son Tarih & Saat</label>
+        <input type="datetime-local" id="eventEndDateTime" required />
+      </div>
+      <div>
+        <label>Durum</label>
+        <select id="eventActive">
+          <option value="true">Aktif</option>
+          <option value="false">Pasif</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="questions">
+      <h2>Sorular</h2>
+      <div id="questionsContainer"></div>
+      <button type="button" id="addQuestion" class="btn small">+ Soru Ekle</button>
+    </div>
+
+    <button type="submit" class="btn" style="margin-top:20px;">Etkinliği Kaydet</button>
+  </form>
+
+  <!-- Firebase SDK’ları -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <script>
+    // 1) Firebase’i yapılandır
+    const firebaseConfig = {
+      apiKey: "AIzaSyBbm63z6rDE3CyB46y2Fm3MBsr5Ld89Js8",
+      authDomain: "tahminmatik-64037.firebaseapp.com",
+      databaseURL: "https://tahminmatik-64037-default-rtdb.firebaseio.com",
+      projectId: "tahminmatik-64037",
+      storageBucket: "tahminmatik-64037.firebasestorage.app",
+      messagingSenderId: "194889028547",
+      appId: "1:194889028547:web:e6e3e69309dd546cf92376",
+      measurementId: "G-SHZKNGZJ16"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // 2) Dinamik soru ekleme
+    let qCount = 0;
+    document.getElementById('addQuestion').addEventListener('click', () => {
+      if (qCount >= 10) return; // max 10 soru
+      qCount++;
+      const div = document.createElement('div');
+      div.className = 'question';
+      div.id = 'q' + qCount;
+      div.innerHTML = `
+        <button type="button" class="btn danger small" onclick="removeQuestion('q${qCount}')">Sil</button>
+        <label>Soru #${qCount}</label>
+        <textarea id="q${qCount}_text" rows="2" required></textarea>
+        <label>Şıklar (2-4 adet)</label>
+        <div class="inline">
+          ${[1,2,3,4].map(i =>
+            `<input type="text" id="q${qCount}_opt${i}" placeholder="Şık ${i}" />`
+          ).join('')}
+        </div>`;
+      document.getElementById('questionsContainer').appendChild(div);
+    });
+    function removeQuestion(id) {
+      document.getElementById(id).remove();
+    }
+
+    // 3) Form gönderimi
+    document.getElementById('eventForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const name      = document.getElementById('eventName').value.trim();
+      const desc      = document.getElementById('eventDesc').value.trim();
+      const coins     = +document.getElementById('eventCoins').value;
+      const dateTime  = document.getElementById('eventEndDateTime').value; // "2025-06-28T15:30"
+      const active    = document.getElementById('eventActive').value === 'true';
+
+      // Tarih ve saat ayır
+      const [endDate, endTime] = dateTime.split('T');
+
+      // Soruları topla
+      const questions = [];
+      document.querySelectorAll('.question').forEach(qDiv => {
+        const id    = qDiv.id;
+        const text  = document.getElementById(id + '_text').value.trim();
+        const opts  = [];
+        for (let i = 1; i <= 4; i++) {
+          const v = document.getElementById(id + '_opt' + i).value.trim();
+          if (v) opts.push(v);
+        }
+        if (text && opts.length >= 2) {
+          questions.push({ text, options: opts, answer: null });
+        }
+      });
+
+      if (!name || !desc || !dateTime || questions.length === 0) {
+        return alert('Lütfen tüm zorunlu alanları doldurun ve en az bir soru oluşturun!');
+      }
+
+      // Yeni etkinlik nesnesi
+      const eventObj = {
+        name,
+        desc,
+        coins,
+        endDate,     // "2025-06-28"
+        endTime,     // "15:30"
+        active,
+        createdAt: Date.now(),
+        questions
+      };
+
+      // Firebase’e kaydet
+      const newRef = db.ref('events').push();
+      newRef.set(eventObj)
+        .then(() => {
+          alert('Etkinlik başarıyla oluşturuldu!');
+          // formu sıfırla
+          document.getElementById('eventForm').reset();
+          document.getElementById('questionsContainer').innerHTML = '';
+          qCount = 0;
+        })
+        .catch(err => alert('Hata: ' + err.message));
+    });
+  </script>
+</body>
+</html>

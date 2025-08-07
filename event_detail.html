@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Etkinlik Detayı ve Dağılım</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f8f9fa; padding-top: 1rem; }
+    .container { max-width: 900px; }
+    .card-header { background: #028e71; color: #fff; }
+    .stats { font-size: 0.9rem; color: #333; margin-top: 0.5rem; }
+    .inline-form { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+    .inline-form input { width: 120px; }
+    .btn-toggle { min-width: 120px; }
+    #participantsList li { list-style: none; padding: .25rem 0; }
+    #participantsContainer { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- Header -->
+    <div class="d-flex align-items-center mb-4">
+      <button class="btn btn-outline-secondary me-2" onclick="history.back()">← Geri</button>
+      <h1 class="h3 mb-0">Etkinlik Detayı</h1>
+    </div>
+
+    <!-- Etkinlik Bilgileri -->
+    <div class="card mb-4 shadow-sm">
+      <div class="card-header">
+        <h2 id="evName" class="mb-0">Yükleniyor…</h2>
+      </div>
+      <div class="card-body">
+        <p><strong>Açıklama:</strong></p>
+        <p id="evDesc">—</p>
+        <div class="row gy-3">
+          <div class="col-6 col-md-3">
+            <p class="mb-1"><strong>Coin Miktarı:</strong></p>
+            <div class="badge bg-success fs-5" id="evCoins">—</div>
+            <div class="inline-form mt-2">
+              <input type="number" id="coinInput" class="form-control form-control-sm" placeholder="Yeni coin">
+              <button type="button" id="btnUpdateCoins" class="btn btn-sm btn-outline-success">Güncelle</button>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <p class="mb-1"><strong>Bitiş Tarihi:</strong></p>
+            <p id="evEndDate">—</p>
+            <div class="inline-form mt-2">
+              <input type="date" id="dateInput" class="form-control form-control-sm">
+              <button type="button" id="btnUpdateDate" class="btn btn-sm btn-outline-primary">Güncelle</button>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <p class="mb-1"><strong>Bitiş Saati:</strong></p>
+            <p id="evEndTime">—</p>
+            <div class="inline-form mt-2">
+              <input type="time" id="timeInput" class="form-control form-control-sm">
+              <button type="button" id="btnUpdateTime" class="btn btn-sm btn-outline-primary">Güncelle</button>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <p class="mb-1"><strong>Durum:</strong></p>
+            <p id="evActive"><span class="badge bg-secondary">—</span></p>
+            <button type="button" id="btnToggleActive" class="btn btn-sm btn-outline-primary btn-toggle mt-2">Yükleniyor…</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Katılımcılar -->
+    <div class="mb-4">
+      <button id="btnShowParticipants" class="btn btn-outline-info">Katılımcıları Göster</button>
+      <div class="card mt-3" id="participantsContainer">
+        <div class="card-header bg-info text-white">Katılımcılar</div>
+        <ul class="card-body list-unstyled" id="participantsList"></ul>
+      </div>
+    </div>
+
+    <!-- Sorular & Cevap Anahtarı -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header">
+        <h4 class="mb-0">Sorular ve Cevap Anahtarları</h4>
+      </div>
+      <div class="card-body">
+        <form id="answersForm">
+          <div id="questionsContainer" class="mb-3"></div>
+          <button type="submit" class="btn btn-primary">Cevap Anahtarlarını Kaydet</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Katılımcı Dağılımı -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h4 class="mb-0">Katılımcı Dağılımı</h4>
+        <button id="btnEndEvent" class="btn btn-sm btn-danger">Etkinliği Sonlandır</button>
+      </div>
+      <div class="card-body" id="statsContainer">
+        <p>Yükleniyor…</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    const firebaseConfig = {apiKey:"AIzaSyBbm63z6rDE3CyB46y2Fm3MBsr5Ld89Js8",authDomain:"tahminmatik-64037.firebaseapp.com",databaseURL:"https://tahminmatik-64037-default-rtdb.firebaseio.com",projectId:"tahminmatik-64037",storageBucket:"tahminmatik-64037.appspot.com",messagingSenderId:"194889028547",appId:"1:194889028547:web:e6e3e69309dd546cf92376",measurementId:"G-SHZKNGZJ16"};
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const evId = new URLSearchParams(location.search).get('id');
+    if (!evId) { alert('Geçersiz etkinlik!'); throw 'No event id'; }
+    const evRef = db.ref('events/' + evId);
+
+    // Elementler
+    const evName        = document.getElementById('evName');
+    const evDesc        = document.getElementById('evDesc');
+    const evCoins       = document.getElementById('evCoins');
+    const coinInput     = document.getElementById('coinInput');
+    const btnUpdateCoins= document.getElementById('btnUpdateCoins');
+    const evEndDate     = document.getElementById('evEndDate');
+    const dateInput     = document.getElementById('dateInput');
+    const btnUpdateDate = document.getElementById('btnUpdateDate');
+    const evEndTime     = document.getElementById('evEndTime');
+    const timeInput     = document.getElementById('timeInput');
+    const btnUpdateTime = document.getElementById('btnUpdateTime');
+    const evActive      = document.getElementById('evActive');
+    const btnToggleActive = document.getElementById('btnToggleActive');
+    const btnShowParts  = document.getElementById('btnShowParticipants');
+    const partsContainer= document.getElementById('participantsContainer');
+    const partsList     = document.getElementById('participantsList');
+    const questionsContainer = document.getElementById('questionsContainer');
+    const answersForm   = document.getElementById('answersForm');
+    const btnEndEvent   = document.getElementById('btnEndEvent');
+    const statsContainer= document.getElementById('statsContainer');
+    let questions = [], currentActive;
+
+    function loadEvent(){ evRef.once('value').then(snap=>{ const ev=snap.val(); evName.innerText=ev.name; evDesc.innerText=ev.desc; evCoins.innerText=ev.coins; coinInput.value=ev.coins; evEndDate.innerText=ev.endDate; dateInput.value=ev.endDate; evEndTime.innerText=ev.endTime||'—'; timeInput.value=ev.endTime||''; currentActive=ev.active; evActive.innerHTML=ev.active?'<span class="badge bg-success">Aktif</span>':'<span class="badge bg-danger">Pasif</span>'; btnToggleActive.innerText=ev.active?'Pasife Al':'Aktife Al'; questions=ev.questions||[]; renderQuestions(); loadStats(); }); }
+    loadEvent();
+
+    btnUpdateCoins.onclick = ()=>{ const v=Number(coinInput.value); if(isNaN(v)||v<0)return alert('Geçerli coin'); evRef.update({coins:v}).then(()=>evCoins.innerText=v); };
+    btnUpdateDate.onclick = ()=>{ const d=dateInput.value; if(!d)return alert('Tarih seç'); evRef.update({endDate:d}).then(()=>evEndDate.innerText=d); };
+    btnUpdateTime.onclick = ()=>{ const t=timeInput.value; if(!t)return alert('Saat seç'); evRef.update({endTime:t}).then(()=>evEndTime.innerText=t); };
+    btnToggleActive.onclick = ()=>{ evRef.update({active:!currentActive}).then(loadEvent); };
+
+    btnShowParts.onclick = ()=>{
+      if(partsContainer.style.display==='none'){ db.ref('events/'+evId+'/participants').once('value').then(ps=>{ partsList.innerHTML=''; ps.forEach(u=>{const li=document.createElement('li');li.innerText=u.val().email||u.key;partsList.appendChild(li)});partsContainer.style.display='block';btnShowParts.innerText='Katılımcıları Gizle'; });
+      } else { partsContainer.style.display='none'; btnShowParts.innerText='Katılımcıları Göster'; }
+    };
+
+    function renderQuestions(){ questionsContainer.innerHTML=''; questions.forEach((q,i)=>{ const c=document.createElement('div'); c.className='card mb-3'; c.innerHTML=`<div class="card-header"><strong>Soru ${i+1}:</strong> ${q.text}</div><div class="card-body"><div class="list-group mb-2">${q.options.map((opt,j)=>`<label class="list-group-item"><input type="radio" name="answer${i}" value="${j}" ${q.answer===j?'checked':''}/> ${opt}</label>`).join('')}</div></div>`; questionsContainer.appendChild(c); }); }
+
+    answersForm.onsubmit = e=>{ e.preventDefault(); const ups={}; questions.forEach((q,i)=>{ const sel=document.querySelector(`input[name=answer${i}]:checked`); ups[`questions/${i}/answer`]=sel?Number(sel.value):null; }); evRef.update(ups).then(()=>{alert('Kaydedildi'); loadStats();}); };
+
+    function loadStats(){ evRef.child('participants').once('value').then(ps=>{ const parts=ps.val()||{}; const uids=Object.keys(parts); let html=`<p>Toplam: <strong>${uids.length}</strong></p>`; questions.forEach((q,i)=>{ const cnt=Array(q.options.length).fill(0); uids.forEach(uid=>{ const a=parts[uid][`answer${i}`]; if(a!=null) cnt[a]++; }); html+=`<div class="stats"><strong>S${i+1}:</strong> ${q.options.map((opt,j)=>`${opt}:${cnt[j]}`).join(' — ')}</div>`; }); statsContainer.innerHTML=html; }); }
+
+    btnEndEvent.onclick = ()=>{ if(questions.some(q=>q.answer==null))return alert('Anahtar atayın'); evRef.child('participants').once('value').then(ps=>{ const parts=ps.val()||{}; const win=Object.values(parts).filter(p=>questions.every((q,i)=>p[`answer${i}`]===q.answer)).map(p=>p.email||'—'); let out='<hr/><h5>Kazananlar '+win.length+'</h5>'; out+=win.length?`<ul>${win.map(e=>`<li>${e}</li>`).join('')}</ul>`:'<p>Yok</p>'; statsContainer.insertAdjacentHTML('beforeend',out); }); };
+  </script>
+</body>
+</html>

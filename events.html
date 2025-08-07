@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Etkinlikler</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: #f0f2f5; color: #333; }
+    header {
+      display: flex;
+      align-items: center;
+      padding: 10px 16px;
+      background: #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    header button {
+      background: none;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      margin-right: 12px;
+    }
+    header h1 {
+      font-size: 20px;
+      font-weight: 600;
+    }
+    main {
+      padding: 16px;
+      max-width: 800px;
+      margin: auto;
+    }
+    #filterInput {
+      width: 100%;
+      padding: 8px 12px;
+      margin-bottom: 16px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .card:hover { background: #e8f5e9; }
+    .card .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .card .title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .card .meta {
+      font-size: 14px;
+      color: #666;
+      margin: 8px 0;
+    }
+    .card .delete-btn {
+      background: #e53935;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+    .card .delete-btn:hover { background: #d32f2f; }
+    @media (min-width: 600px) {
+      .card { flex-direction: row; justify-content: space-between; align-items: center; }
+      .card .meta { margin: 0 16px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <button onclick="history.back()">←</button>
+    <h1>Mevcut Etkinlikler</h1>
+  </header>
+  <main>
+    <input type="text" id="filterInput" placeholder="Etkinlik ara..." />
+    <div id="eventsList"></div>
+  </main>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script>
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBbm63z6rDE3CyB46y2Fm3MBsr5Ld89Js8",
+      authDomain: "tahminmatik-64037.firebaseapp.com",
+      databaseURL: "https://tahminmatik-64037-default-rtdb.firebaseio.com",
+      projectId: "tahminmatik-64037",
+      storageBucket: "tahminmatik-64037.firebasestorage.app",
+      messagingSenderId: "194889028547",
+      appId: "1:194889028547:web:e6e3e69309dd546cf92376",
+      measurementId: "G-SHZKNGZJ16"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const listEl = document.getElementById('eventsList');
+    const filterInput = document.getElementById('filterInput');
+    let eventsArray = [];
+
+    function renderList() {
+      const filter = filterInput.value.toLowerCase();
+      listEl.innerHTML = '';
+      eventsArray
+        .filter(item => item.val.name.toLowerCase().includes(filter))
+        .forEach(item => {
+          listEl.appendChild(renderEvent(item.key, item.val));
+        });
+    }
+
+    function renderEvent(key, ev) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.onclick = () => window.location.href = `event_detail.html?id=${key}`;
+      card.innerHTML = `
+        <div class="row">
+          <div class="title">${ev.name}</div>
+          <button class="delete-btn" onclick="deleteEvent(event, '${key}')">Sil</button>
+        </div>
+        <div class="meta">Bitiş: ${ev.endDate} | Coin: ${ev.coins} | Durum: ${ev.active ? 'Aktif' : 'Pasif'}</div>
+      `;
+      return card;
+    }
+
+    function deleteEvent(e, key) {
+      e.stopPropagation();
+      if (!confirm('Etkinliği silmek istediğinizden emin misiniz?')) return;
+      db.ref('events/' + key).remove()
+        .then(() => alert('Etkinlik silindi.'))
+        .catch(err => alert('Silme hatası: ' + err.message));
+    }
+
+    // Veri dinleme ve sıralama
+    db.ref('events').on('value', snap => {
+      eventsArray = [];
+      snap.forEach(child => {
+        const ev = child.val();
+        const key = child.key;
+        eventsArray.push({ key, val: ev });
+      });
+      // createdAt'a göre ters sırala
+      eventsArray.sort((a, b) => (b.val.createdAt || 0) - (a.val.createdAt || 0));
+      renderList();
+    });
+
+    // Filtre input değişiminde listeyi güncelle
+    filterInput.addEventListener('input', renderList);
+  </script>
+</body>
+</html>
